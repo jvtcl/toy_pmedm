@@ -77,11 +77,132 @@ q = q / np.sum(q)
 #%%
 
 #%% Vectorize geo. constraints (Y) and normalize
-Y_vec = (np.vstack((Y1, Y2)) / N).flatten('A')
+Y_vec = np.concatenate([Y1.flatten('A'), Y2.flatten('A')]) / N
 #%%
 
 #%% Vectorize error variances and normalize
-V_vec = (np.vstack((V1, V2)) * (n / N**2)).flatten('A')
+V_vec = np.concatenate([V1.flatten('A'), V2.flatten('A')]) * (n / N**2)
+#%%
+
+#%% (Initial coefficients/lambdas)
+lam = np.zeros((len(Y_vec),))
+#%%
+
+#%% compute allocation (SCRATCH)
+a0 = np.exp(np.matmul(-X, lam))
+a = q * a0
+b = np.dot(q, a0)
+np.divide(a, b)
 #%%
 
 
+#%% compute allocation (function)
+def compute_allocation(q, X, lam):
+    
+    a0 = np.exp(np.matmul(-X, lam))
+    
+    a = q * a0
+    
+    b = np.dot(q, a0)
+    
+    ab = np.divide(a, b)
+    
+    return ab
+#%%
+
+#%% test it
+p_hat = compute_allocation(q, X, lam)
+p_hat = np.reshape(p_hat, (pX.shape[0], A2.shape[0]))
+#%%
+
+#%% compute the target (block group) constraint estimates
+Yhat2 = np.matmul(np.transpose(N * p_hat), pX)
+#%%
+
+#%% compute the upper (tract) constraint estimates
+p_hat_up = np.matmul((p_hat * N), np.transpose(A1))
+Yhat1 = np.matmul(np.transpose(p_hat_up), pX)
+#%%
+
+#%% Vectorize constraint estimates
+Yhat = np.concatenate([Yhat1.flatten('F'), Yhat2.flatten('F')])
+#%%
+
+#%% Assemble results
+Yres = pd.DataFrame({'Y': Y_vec * N, 'Yhat': Yhat,\
+                     'V': np.multiply(V_vec, float(N**2 / n))})
+#%%
+    
+#%% Primal function (SCRATCH)
+# w = Yres.iloc[0].Y
+# d = Yres.iloc[0].Yhat
+# v = Yres.iloc[0].V
+
+# e = d - w
+
+# penalty = e**2 / (2 * v)
+
+# ent = ((n / N) * (w / d) * np.log((w/d)))
+
+# pe = (-1 * ent) - penalty
+
+# print(pe)
+#%%
+
+#%% Primal function
+def penalized_entropy(w, d, v, n, N):
+    
+    e = d - w
+
+    penalty = e**2 / (2 * v)
+
+    ent = ((n / N) * (w / d) * np.log((w/d)))
+
+    pe = (-1 * ent) - penalty
+    
+    return pe
+
+#%%
+
+#%% test it
+pe = []
+
+for i in range(Yres.shape[0]):
+    
+    pei = penalized_entropy(Yres.iloc[i].Y, Yres.iloc[i].Yhat, Yres.iloc[i].V,\
+                            n, N)
+    pe.append(pei)
+
+pe = np.array(pe)
+
+print(-1 * np.mean(pe))
+#%%
+
+#%% Objective function
+def neg_pe(lam):
+    
+    p_hat = compute_allocation(q, X, lam)
+    p_hat = np.reshape(p_hat, (pX.shape[0], A2.shape[0]))
+    Yhat2 = np.matmul(np.transpose(N * p_hat), pX)
+    
+    p_hat_up = np.matmul((p_hat * N), np.transpose(A1))
+    Yhat1 = np.matmul(np.transpose(p_hat_up), pX)
+    
+    Yres = pd.DataFrame({'Y': Y_vec * N, 'Yhat': Yhat,\
+                     'V': np.multiply(V_vec, float(N**2 / n))})
+    
+    pe = []
+
+    for i in range(Yres.shape[0]):
+    
+        pei = penalized_entropy(Yres.iloc[i].Y, Yres.iloc[i].Yhat, Yres.iloc[i].V, n, N)
+        pe.append(pei)
+
+    pe = -1 * np.mean(np.array(pe))
+    
+    return pe
+#%%
+    
+#%% test it
+neg_pe(lam)
+#%%

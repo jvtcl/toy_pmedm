@@ -137,8 +137,8 @@ agg2parent <- function(pmat, ids){
 # )
 # 
 # Ype <- data.frame(Y = Y_vec * N, Y.hat = Y.hat, V = diag(sV) * N^2/n)
-# Ype$MOE.lower <- Ype$Y - (1.645 * sqrt(Ype$V))
-# Ype$MOE.upper <- Ype$Y + (1.645 * sqrt(Ype$V))
+# # Ype$MOE.lower <- Ype$Y - (1.645 * sqrt(Ype$V))
+# # Ype$MOE.upper <- Ype$Y + (1.645 * sqrt(Ype$V))
 # 
 # 
 # # penalized entropy values
