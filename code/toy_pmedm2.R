@@ -1,5 +1,5 @@
-constraints_ind <- read.csv('toy_constraints_ind.csv', stringsAsFactors = F)
-constraints_bg <- read.csv('toy_constraints_geo.csv', stringsAsFactors = F)
+constraints_ind <- read.csv('data/toy_constraints_ind.csv', stringsAsFactors = F)
+constraints_bg <- read.csv('data/toy_constraints_bg.csv', stringsAsFactors = F)
 
 trt_id <- substr(constraints_bg$GEOID, 1, 2)
 
@@ -197,37 +197,37 @@ pmedm.simple <- optim(par = rep(0, length(Y_vec)),
                       method = 'BFGS',
                       control = list(trace = 4))
 
-# # compare P-MEDM full and P-MEDM simple coefficients
-# plot(pmedm.simple$par ~ t$lambda)
-
-## allocation with p-medm simple coefficients
-# p.hat <- compute_allocation(q, X, lambda = rep(0, length(Y_vec))) # init lambda
-# p.hat <- compute_allocation(q, X, lambda = t$lambda) # P-MEDM full final lambda
-p.hat <- compute_allocation(q, X, lambda = pmedm.simple$par) # P-MEDM simple final lambda
-
-p.hat <- reshape_probabilities(p.hat, n, A)
-p.hat.trt <- agg2parent(p.hat, ids = get_parent_ids(A[[1]]))
-
-Y.hat <- c(
-  as.vector(apply(pX[[1]], 2, function(v) colSums(v * p.hat.trt * N))),
-  as.vector(apply(pX[[1]], 2, function(v) colSums(v * p.hat * N)))
-)
-
-Ype <- data.frame(Y = Y_vec * N, Y.hat = Y.hat, V = diag(sV) * N^2/n)
-Ype$MOE.lower <- Ype$Y - (1.645 * sqrt(Ype$V))
-Ype$MOE.upper <- Ype$Y + (1.645 * sqrt(Ype$V))
-Ype$win.moe <- factor(with(Ype, ifelse(Y.hat >= MOE.lower & Y.hat <= MOE.upper, 'Yes', 'No')),
-                      levels = c('No', 'Yes'))
-# head(Ype)
-
-PE <- apply(Ype, 1, function(i) f(w = i['Y'], d = i['Y.hat'], n = n, N = N, v = i['V'], verbose = F))
-PE
-mean(PE)
-
-library(ggplot2)
-ggplot(data = Ype, aes(x = Y, y = Y.hat)) + 
-  geom_linerange(aes(ymin = MOE.lower, ymax = MOE.upper, col = win.moe), size = 2) +
-  geom_point() + 
-  scale_color_manual(values = c('coral', 'skyblue'), drop = F) +
-  theme_bw() +
-  labs(color = 'Within ACS 90%\nMargin of Error?')
+# # # compare P-MEDM full and P-MEDM simple coefficients
+# # plot(pmedm.simple$par ~ t$lambda)
+# 
+# ## allocation with p-medm simple coefficients
+# # p.hat <- compute_allocation(q, X, lambda = rep(0, length(Y_vec))) # init lambda
+# # p.hat <- compute_allocation(q, X, lambda = t$lambda) # P-MEDM full final lambda
+# p.hat <- compute_allocation(q, X, lambda = pmedm.simple$par) # P-MEDM simple final lambda
+# 
+# p.hat <- reshape_probabilities(p.hat, n, A)
+# p.hat.trt <- agg2parent(p.hat, ids = get_parent_ids(A[[1]]))
+# 
+# Y.hat <- c(
+#   as.vector(apply(pX[[1]], 2, function(v) colSums(v * p.hat.trt * N))),
+#   as.vector(apply(pX[[1]], 2, function(v) colSums(v * p.hat * N)))
+# )
+# 
+# Ype <- data.frame(Y = Y_vec * N, Y.hat = Y.hat, V = diag(sV) * N^2/n)
+# Ype$MOE.lower <- Ype$Y - (1.645 * sqrt(Ype$V))
+# Ype$MOE.upper <- Ype$Y + (1.645 * sqrt(Ype$V))
+# Ype$win.moe <- factor(with(Ype, ifelse(Y.hat >= MOE.lower & Y.hat <= MOE.upper, 'Yes', 'No')),
+#                       levels = c('No', 'Yes'))
+# # head(Ype)
+# 
+# PE <- apply(Ype, 1, function(i) f(w = i['Y'], d = i['Y.hat'], n = n, N = N, v = i['V'], verbose = F))
+# PE
+# mean(PE)
+# 
+# library(ggplot2)
+# ggplot(data = Ype, aes(x = Y, y = Y.hat)) + 
+#   geom_linerange(aes(ymin = MOE.lower, ymax = MOE.upper, col = win.moe), size = 2) +
+#   geom_point() + 
+#   scale_color_manual(values = c('coral', 'skyblue'), drop = F) +
+#   theme_bw() +
+#   labs(color = 'Within ACS 90%\nMargin of Error?')
