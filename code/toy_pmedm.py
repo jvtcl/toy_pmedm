@@ -7,9 +7,9 @@ Created on Wed May 27 08:15:05 2020
 """
 
 #%%
-import os
 import numpy as np
 import pandas as pd
+from scipy import optimize
 #%%
 
 #%%
@@ -89,10 +89,10 @@ lam = np.zeros((len(Y_vec),))
 #%%
 
 #%% compute allocation (SCRATCH)
-a0 = np.exp(np.matmul(-X, lam))
-a = q * a0
-b = np.dot(q, a0)
-np.divide(a, b)
+# a0 = np.exp(np.matmul(-X, lam))
+# a = q * a0
+# b = np.dot(q, a0)
+# np.divide(a, b)
 #%%
 
 
@@ -188,6 +188,8 @@ def neg_pe(lam):
     p_hat_up = np.matmul((p_hat * N), np.transpose(A1))
     Yhat1 = np.matmul(np.transpose(p_hat_up), pX)
     
+    Yhat = np.concatenate([Yhat1.flatten('F'), Yhat2.flatten('F')])
+    
     Yres = pd.DataFrame({'Y': Y_vec * N, 'Yhat': Yhat,\
                      'V': np.multiply(V_vec, float(N**2 / n))})
     
@@ -204,5 +206,38 @@ def neg_pe(lam):
 #%%
     
 #%% test it
-neg_pe(lam)
+%time neg_pe(lam)
+#%%
+
+#%% optimization
+%time res = optimize.minimize(neg_pe, x0 = lam, method = 'BFGS', options = {'maxiter': 200})
+#%%
+
+#%% blah
+# res.x
+# res.hess_inv # nice!
+#%%
+
+#%% inspect results
+lamf = res.x # final lambda 
+
+p_hat = compute_allocation(q, X, lamf)
+p_hat = np.reshape(p_hat, (pX.shape[0], A2.shape[0]))
+Yhat2 = np.matmul(np.transpose(N * p_hat), pX)
+
+p_hat_up = np.matmul((p_hat * N), np.transpose(A1))
+Yhat1 = np.matmul(np.transpose(p_hat_up), pX)
+
+Yhat = np.concatenate([Yhat1.flatten('F'), Yhat2.flatten('F')])
+
+Yres = pd.DataFrame({'Y': Y_vec * N, 'Yhat': Yhat,\
+                 'V': np.multiply(V_vec, float(N**2 / n))})
+    
+Yres['Err'] = Yres.Y - Yres.Yhat    
+Yres['MOE_lower'] = Yres.Y - (np.sqrt(Yres.V) * 1.645)
+Yres['MOE_upper'] = Yres.Y + (np.sqrt(Yres.V) * 1.645)
+
+# proportion of contstraints falling within 90% Margins of Error
+win_moe = (Yres.Yhat >= Yres.MOE_lower) & (Yres.Yhat <= Yres.MOE_upper)
+print(sum(win_moe) / Yres.shape[0])
 #%%
