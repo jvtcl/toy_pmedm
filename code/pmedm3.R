@@ -126,8 +126,6 @@ f <- function(lambda){
 # 
 ## allocation with p-medm simple coefficients
 p.hat <- compute_allocation(q, X, lambda = rep(0, length(Y_vec))) # init lambda
-# p.hat <- compute_allocation(q, X, lambda = t$lambda) # P-MEDMrcpp final lambdas
-# p.hat <- compute_allocation(q, X, lambda = pmedm.simple$par) # P-MEDM simple final lambda
 
 p.hat <- reshape_probabilities(p.hat, n, A)
 p.hat.trt <- agg2parent(p.hat, ids = get_parent_ids(A[[1]]))
@@ -150,8 +148,39 @@ plt.init <- ggplot(data = Ype, aes(x = Y, y = Y.hat)) +
   geom_point(aes(fill = win.moe), pch = 21, position = position_dodge2(width = 1)) +
   scale_color_manual(values = c('coral', 'skyblue'), drop = F) +
   scale_fill_manual(values = c('coral', 'skyblue'), drop = F) +
+  ggtitle('Initial Solution') +
   theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) +
   labs(color = 'Within ACS 90%\nMargin of Error?') + 
   guides(fill = 'none')
 
 ###
+p.hat.optim <- compute_allocation(q, X, lambda = t$lambda) # P-MEDMrcpp final lambdas
+p.hat.optim <- compute_allocation(q, X, lambda = pmedm.simple$par) # P-MEDM simple final lambda
+
+p.hat.optim <- reshape_probabilities(p.hat.optim, n, A)
+p.hat.trt.optim <- agg2parent(p.hat.optim, ids = get_parent_ids(A[[1]]))
+
+Y.hat.optim <- c(
+  as.vector(apply(pX[[1]], 2, function(v) colSums(v * p.hat.trt.optim * N))),
+  as.vector(apply(pX[[1]], 2, function(v) colSums(v * p.hat.optim * N)))
+)
+
+Ype.optim <- data.frame(Y = Y_vec * N, Y.hat = Y.hat.optim, V = diag(sV) * N^2/n)
+Ype.optim$MOE.lower <- Ype.optim$Y - (1.645 * sqrt(Ype.optim$V))
+Ype.optim$MOE.upper <- Ype.optim$Y + (1.645 * sqrt(Ype.optim$V))
+Ype.optim$win.moe <- factor(with(Ype.optim, ifelse(Y.hat >= MOE.lower & Y.hat <= MOE.upper, 'Yes', 'No')),
+                            levels = c('No', 'Yes'))
+
+plt.optim <- ggplot(data = Ype.optim, aes(x = Y, y = Y.hat)) +
+  geom_linerange(aes(ymin = MOE.lower, ymax = MOE.upper, col = win.moe), size = 2, position = position_dodge2(width = 1)) +
+  geom_point(aes(fill = win.moe), pch = 21, position = position_dodge2(width = 1)) +
+  scale_color_manual(values = c('coral', 'skyblue'), drop = F) +
+  scale_fill_manual(values = c('coral', 'skyblue'), drop = F) +
+  ggtitle('Optimized Solution') +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  labs(color = 'Within ACS 90%\nMargin of Error?') + 
+  guides(fill = 'none')
+
+cowplot::plot_grid(plt.init, plt.optim, nrow = 1)
