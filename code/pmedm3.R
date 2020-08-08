@@ -1,14 +1,14 @@
 "
-Paper version
+Paper version (final)
 "
 
-constraints_ind <- read.csv('data/toy_constraints_ind2.csv', stringsAsFactors = F)
+constraints_ind <- read.csv('data/toy_constraints_ind3.csv', stringsAsFactors = F)
 
-constraints_bg <- read.csv('data/toy_constraints_bg2.csv', stringsAsFactors = F)
+constraints_bg <- read.csv('data/toy_constraints_bg3.csv', stringsAsFactors = F)
 
 trt_id <- substr(constraints_bg$GEOID, 1, 1)
 
-est_cols <- c('POP', 'CONST1', 'CONST2', 'CONST3', 'CONST4')
+est_cols <- c('POP', 'CONST1', 'CONST2', 'CONST3', 'CONST4', 'CONST5', 'CONST6')
 se_cols <- paste0(est_cols, 's')
 
 est_trt <- aggregate(constraints_bg[,est_cols], by = list(trt_id), FUN = sum)
@@ -93,30 +93,6 @@ sum(t$p - p.hat)
 
 #### Homebrew optimization ####
 
-### helper functions ###
-# 
-# f = function(w, d, n, N, v, verbose = F){
-#   
-#   "
-#   Base penalized entropy function
-#   "
-#   
-#   e = d - w
-#   
-#   penalty = (e ** 2 / (2 * v))
-#   
-#   ent = ((n / N) * (w / d) * log((w/d)))
-#   
-#   if(verbose){
-#     
-#     cat('Error:', e, 'Entropy:', ent , 'Penalty:', penalty, '\n')    
-#     
-#   }
-#   
-#   (-1 * ent) - penalty
-#   
-# }
-
 get_parent_ids <- function(XW){
   
   apply(XW, 2, function(x) rownames(XW)[which(x == 1)])
@@ -129,50 +105,7 @@ agg2parent <- function(pmat, ids){
   
 }
 
-### Optimization ###
-# penalized.entropy <- function(lambda){
-#   
-#   "
-#   pX : the individual-level constraints 
-#     (this is a dual matrix, just subset ONE element as the input!)
-#     
-#   X : dual matrix of individual-level constraints (x) geographies (kroenecker product)
-#   
-#   Yv : a vector of geographic constraints (parent level, THEN child level)
-#   
-#   sV: a sparse diagonal matrix of variances in the area-level constraints
-#   
-#   q : prior allocation probabilities
-#     (equal probability of selecting individual `i` in areas `j = 1...m`)
-#     
-#   n : number of PUMS records
-#   
-#   N : total population size
-#   
-#   A : dual matrix, a crosswalk between the child and parent geographies `A[[1]]`
-#       and identity matrix for target (child) units `A[[2]]``
-#   "
-#   
-#   p.hat <- compute_allocation(q, X, lambda)
-#   
-#   p.hat <- reshape_probabilities(p.hat, n, A)
-#   p.hat.trt <- agg2parent(p.hat, ids = get_parent_ids(A[[1]]))
-#   
-#   Y.hat <- c(
-#     as.vector(apply(pX[[1]], 2, function(v) colSums(v * p.hat.trt * N))),
-#     as.vector(apply(pX[[1]], 2, function(v) colSums(v * p.hat * N)))
-#   )
-#   
-#   Ype <- data.frame(Y = Y_vec * N, Y.hat = Y.hat, V = diag(sV) * N^2/n)
-#   
-#   # penalized entropy values
-#   PE <- apply(Ype, 1, function(i) f(w = i['Y'], d = i['Y.hat'], n = n, N = N, v = i['V'], verbose = F))
-#   
-#   -mean(PE) # negative so that the objective is maximization
-#   
-#   
-# }
-
+### Optimization ####
 f <- function(lambda){
   
   qXl <- q * exp(-X %*% lambda)
@@ -183,19 +116,17 @@ f <- function(lambda){
   
 }
 
-# penalized.entropy(lambda = rep(0, length(Y_vec))) # test
-
-pmedm.simple <- optim(par = rep(0, length(Y_vec)),
-                      fn = f,
-                      method = 'BFGS',
-                      control = list(trace = 4, maxit = 1000))
+# pmedm.simple <- optim(par = rep(0, length(Y_vec)),
+#                       fn = f,
+#                       method = 'BFGS',
+#                       control = list(trace = 4, maxit = 1000))
 
 # # # compare P-MEDM full and P-MEDM simple coefficients
 # # plot(pmedm.simple$par ~ t$lambda)
 # 
 ## allocation with p-medm simple coefficients
 p.hat <- compute_allocation(q, X, lambda = rep(0, length(Y_vec))) # init lambda
-# p.hat <- compute_allocation(q, X, lambda = t$lambda) # P-MEDM full final lambda
+# p.hat <- compute_allocation(q, X, lambda = t$lambda) # P-MEDMrcpp final lambdas
 # p.hat <- compute_allocation(q, X, lambda = pmedm.simple$par) # P-MEDM simple final lambda
 
 p.hat <- reshape_probabilities(p.hat, n, A)
@@ -211,16 +142,16 @@ Ype$MOE.lower <- Ype$Y - (1.645 * sqrt(Ype$V))
 Ype$MOE.upper <- Ype$Y + (1.645 * sqrt(Ype$V))
 Ype$win.moe <- factor(with(Ype, ifelse(Y.hat >= MOE.lower & Y.hat <= MOE.upper, 'Yes', 'No')),
                       levels = c('No', 'Yes'))
-# head(Ype)
-# 
-# PE <- apply(Ype, 1, function(i) f(w = i['Y'], d = i['Y.hat'], n = n, N = N, v = i['V'], verbose = F))
-# PE
-# mean(PE)
+table(Ype$win.moe) / nrow(Ype)
 
 library(ggplot2)
-ggplot(data = Ype, aes(x = Y, y = Y.hat)) +
+plt.init <- ggplot(data = Ype, aes(x = Y, y = Y.hat)) +
   geom_linerange(aes(ymin = MOE.lower, ymax = MOE.upper, col = win.moe), size = 2, position = position_dodge2(width = 1)) +
-  geom_point(position = position_dodge2(width = 1)) +
+  geom_point(aes(fill = win.moe), pch = 21, position = position_dodge2(width = 1)) +
   scale_color_manual(values = c('coral', 'skyblue'), drop = F) +
+  scale_fill_manual(values = c('coral', 'skyblue'), drop = F) +
   theme_bw() +
-  labs(color = 'Within ACS 90%\nMargin of Error?')
+  labs(color = 'Within ACS 90%\nMargin of Error?') + 
+  guides(fill = 'none')
+
+###
