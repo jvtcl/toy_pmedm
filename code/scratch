@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu May 28 07:19:20 2020
+
+@author: joe
+"""
+
+import numpy as np
+from numba import jit, njit, vectorize
+
+#%%
+@njit # fastest
+# @vectorize
+def blah(X, Y):
+    
+    res = np.dot(X, Y)
+    
+    return res
+    return res
+#%%
+    
+%timeit blah(-X, lam)
+
+#%% from https://towardsdatascience.com/python-numba-or-numpy-understand-the-differences-b448dabd5b5b
+def matrix_multiplication(A,B):
+    row, col_A = A.shape
+    col_B = B.shape[1]    
+    result = np.zeros((row,col_B))    
+    for i in range(0,row):
+        for j in range(0,col_B):
+            for k in range(0,col_A):
+                result[i,j] += A[i,k]*B[k,j] 
+    return result
+#%%
+    
+matrix_multiplication(-X, lam)
+
+#%% with sparse matrices
+def blah(X, Y):
+    
+    res = X @ Y
+    return res
+#%%
+
+Xs = sparse.csr_matrix(-X)
+%timeit blah(-X, lam)
+%timeit blah(Xs, lam)
+
+#%%
+@jit(nopython = True)
+def blah(A, B, N):
+
+    np.dot(np.transpose(N * A), B)
+#%%
+    
+%timeit blah(p_hat, pX.astype('float'), float(N))
+
+#%%
+@njit
+def blah(X, lam):
+    
+    [X[i] * lam for i in range(X.shape[0])]
+    # np.array([np.sum(X[i] * lam) for i in range(X.shape[0])])
+    
+#%%
+
+%timeit blah(-X, lam)

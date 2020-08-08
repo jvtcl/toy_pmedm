@@ -9,7 +9,8 @@ Created on Wed May 27 08:15:05 2020
 #%%
 import numpy as np
 import pandas as pd
-from scipy import optimize
+from scipy import optimize, sparse
+from numba import jit
 #%%
 
 #%%
@@ -69,6 +70,7 @@ A2 = np.identity(geo_lookup.shape[0])
 X1 = np.kron(np.transpose(pX), A1)
 X2 = np.kron(np.transpose(pX), A2)
 X = np.transpose(np.vstack((X1, X2)))
+# X = sparse.csr_matrix(X)
 #%%
 
 #%% Design weights
@@ -90,16 +92,18 @@ lam = np.zeros((len(Y_vec),))
 
 #%% compute allocation (SCRATCH)
 # a0 = np.exp(np.matmul(-X, lam))
-# a = q * a0
-# b = np.dot(q, a0)
-# np.divide(a, b)
+a0 = np.exp(-X.dot(lam)) # alt
+a = q * a0
+b = np.dot(q, a0)
+np.divide(a, b)
 #%%
 
-
 #%% compute allocation (function)
+@jit(nopython = True)
 def compute_allocation(q, X, lam):
     
-    a0 = np.exp(np.matmul(-X, lam))
+    # a0 = np.exp(np.matmul(-X, lam))
+    a0 = np.exp(np.dot(-X, lam)) # alt
     
     a = q * a0
     
@@ -111,21 +115,48 @@ def compute_allocation(q, X, lam):
 #%%
 
 #%% test it
+# %timeit compute_allocation(q, X, lam)
 p_hat = compute_allocation(q, X, lam)
 p_hat = np.reshape(p_hat, (pX.shape[0], A2.shape[0]))
 #%%
 
 #%% compute the target (block group) constraint estimates
-Yhat2 = np.matmul(np.transpose(N * p_hat), pX)
+# Yhat2 = np.matmul(np.transpose(N * p_hat), pX)
+Yhat2 = np.dot(np.transpose(N * p_hat), pX) # alt
 #%%
 
 #%% compute the upper (tract) constraint estimates
-p_hat_up = np.matmul((p_hat * N), np.transpose(A1))
-Yhat1 = np.matmul(np.transpose(p_hat_up), pX)
+# p_hat_up = np.matmul((p_hat * N), np.transpose(A1))
+p_hat_up = np.dot((p_hat * N), np.transpose(A1)) # alt
+# Yhat1 = np.matmul(np.transpose(p_hat_up), pX)
+Yhat1 = np.dot(np.transpose(p_hat_up), pX) # alt
 #%%
 
 #%% Vectorize constraint estimates
 Yhat = np.concatenate([Yhat1.flatten('F'), Yhat2.flatten('F')])
+#%%
+
+#%%
+@jit(nopython=True)
+def synthetic_constraints(q, X, lam, pX, A1, A2):
+    
+    p_hat = compute_allocation(q, X, lam)
+    p_hat = np.reshape(p_hat, (pX.shape[0], A2.shape[0]))
+    
+    Yhat2 = np.dot(np.transpose(N * p_hat), pX) # alt
+    
+    p_hat_up = np.dot((p_hat * N), np.transpose(A1)) # alt
+    Yhat1 = np.dot(np.transpose(p_hat_up), pX) # alt
+    
+    np.concatenate([Yhat1.flatten('F'), Yhat2.flatten('F')])
+    
+#%%
+
+#%%
+N = float(N)
+pX = pX.astype('float')
+A1 = A1.astype('float')
+# %timeit synthetic_constraints(q, X, lam, pX, A1, A2)
 #%%
 
 #%% Assemble results
@@ -150,6 +181,7 @@ Yres = pd.DataFrame({'Y': Y_vec * N, 'Yhat': Yhat,\
 #%%
 
 #%% Primal function
+# @jit(nopython = True)
 def penalized_entropy(w, d, v, n, N):
     
     e = d - w
@@ -179,6 +211,7 @@ print(-1 * np.mean(pe))
 #%%
 
 #%% Objective function
+# @jit(nopython = True)
 def neg_pe(lam):
     
     p_hat = compute_allocation(q, X, lam)
@@ -206,11 +239,12 @@ def neg_pe(lam):
 #%%
     
 #%% test it
-%time neg_pe(lam)
+# %timeit neg_pe(lam)
 #%%
 
 #%% optimization
-%time res = optimize.minimize(neg_pe, x0 = lam, method = 'BFGS', options = {'maxiter': 200})
+# %time res = optimize.minimize(neg_pe, x0 = lam, method = 'BFGS', options = {'maxiter': 200})
+res = optimize.minimize(neg_pe, x0 = lam, method = 'BFGS', options = {'maxiter': 200})
 #%%
 
 #%% blah
@@ -240,4 +274,12 @@ Yres['MOE_upper'] = Yres.Y + (np.sqrt(Yres.V) * 1.645)
 # proportion of contstraints falling within 90% Margins of Error
 win_moe = (Yres.Yhat >= Yres.MOE_lower) & (Yres.Yhat <= Yres.MOE_upper)
 print(sum(win_moe) / Yres.shape[0])
+#%%
+
+#%% scratch
+# # a0 = np.exp(np.matmul(-X, lamf))
+# a0 = np.exp(-X.dot(lamf)) # alt
+# a = q * a0
+# b = np.dot(q, a0)
+# np.divide(a, b)
 #%%
