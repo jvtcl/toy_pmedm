@@ -151,7 +151,7 @@ plt.init <- ggplot(data = Ype, aes(x = Y, y = Y.hat)) +
   ggtitle('Initial Solution') +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5)) +
-  labs(color = 'Within ACS 90%\nMargin of Error?') + 
+  labs(color = 'Within ACS 90%\nMargin of Error?') +
   guides(fill = 'none')
 
 ###
@@ -184,3 +184,4 @@ plt.optim <- ggplot(data = Ype.optim, aes(x = Y, y = Y.hat)) +
   guides(fill = 'none')
 
 cowplot::plot_grid(plt.init, plt.optim, nrow = 1)
+ggsave(filename = '../sv-trees/figs/pmedm.pdf', device = 'pdf', width = 14, height = 5.5, units = 'in', dpi = 600)
