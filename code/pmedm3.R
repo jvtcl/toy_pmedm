@@ -184,4 +184,5 @@ plt.optim <- ggplot(data = Ype.optim, aes(x = Y, y = Y.hat)) +
   guides(fill = 'none')
 
 cowplot::plot_grid(plt.init, plt.optim, nrow = 1)
-ggsave(filename = '../sv-trees/figs/pmedm.pdf', device = 'pdf', width = 14, height = 5.5, units = 'in', dpi = 600)
+ggsave(filename = '../sv-trees/figs/pmedm.tiff', device = 'tiff', width = 14, height = 5.5, units = 'in', dpi = 600,
+       compression = 'lzw')
